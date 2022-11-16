@@ -37,18 +37,74 @@ const run = async () => {
       .collection("bookings");
 
     app.get("/appoinmentOptions", async (req, res) => {
+      //find the selectedDate's all bookings
+      /* const currentDate = req.query.date;
+      const bookingFilter = { date: currentDate };
+      const AlreadyBookedOptions = await bookingCollection
+        .find(bookingFilter)
+        .toArray();
+      console.log(AlreadyBookedOptions);
+
+      //getting all options
       const query = {};
       const appoinmentOptions = await appoinmentCollection
         .find(query)
         .toArray();
 
-      res.send(appoinmentOptions);
+      appoinmentOptions.map((option) => {
+        const optionBooked = AlreadyBookedOptions.filter(
+          (book) => book.name === option.name
+        );
+        const bookedSlots = optionBooked.map((boot) => book.slot);
+        const remainingSlots = option.slots.filter((slot) =>
+          bookedSlots.includes(slot)
+        );
+        option.slots = remainingSlots;
+      }); */
+
+      // Get all the options
+      const optionsQuery = {};
+      const options = await appoinmentCollection.find(optionsQuery).toArray();
+
+      // Get all the current date's bookings
+      const currentDate = req.query.date;
+      const bookedOptionsQuery = { appoinmentDate: currentDate };
+
+      const alreadyBookedOptions = await bookingCollection
+        .find(bookedOptionsQuery)
+        .toArray();
+
+      options.map((option) => {
+        alreadyBookedOptions.map((bookedOption) => {
+          if (bookedOption.treatment === option.name) {
+            const remainingSlots = option.slots.filter(
+              (slot) => slot !== bookedOption.slot
+            );
+
+            option.slots = remainingSlots;
+          }
+        });
+      });
+
+      res.send(options);
     });
 
     app.post("/bookings", async (req, res) => {
       const booking = req.body;
+      const query = {
+        email: booking.email,
+        appoinmentDate: booking.appoinmentDate,
+        treatment: booking.treatment,
+      };
+
+      const booked = await bookingCollection.find(query).toArray();
+      if (booked.length) {
+        return res.send({
+          acknowledged: false,
+          message: `You already have an booking on ${booking.appoinmentDate}`,
+        });
+      }
       const result = await bookingCollection.insertOne(booking);
-      console.log(result);
       res.send(result);
     });
   } finally {
